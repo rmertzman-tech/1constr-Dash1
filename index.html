@@ -591,23 +591,8 @@
                         <h3 class="font-semibold text-gray-900">2. How the AI Analysis Works</h3>
                         <p>When you click an "Analyze" or "Synthesize" button, the text from the relevant fields is sent to Google's servers to be processed by a large language model. This is done using a secure, encrypted HTTPS connection to protect your privacy during transmission. <strong>This interaction is stateless; your data is not stored or used to train the model.</strong> However, like any online transmission, it involves sending your text over the internet.</p>
                     </div>
-                    <div class="bg-blue-50 p-4 rounded-lg">
-                        <h3 class="font-semibold text-blue-800">3. Activating AI Features (One-Time Setup)</h3>
-                        <p class="text-blue-700">To enable the AI analysis features on a public site like GitHub, you need a free API key from Google AI Studio. This is a one-time setup.</p>
-                        <ol class="list-decimal list-inside pl-4 space-y-1 mt-2 text-sm">
-                            <li>Go to <a href="https://aistudio.google.com" target="_blank" class="underline">aistudio.google.com</a> and sign in.</li>
-                            <li>Click "Get API key," then "Create API key in new project."</li>
-                            <li>Copy the generated key.</li>
-                            <li>Paste the key into the input box below and click "Save Key". You only need to do this once per browser.</li>
-                        </ol>
-                        <div class="mt-4 flex space-x-2">
-                            <input type="text" id="api-key-input" class="flex-grow p-2 border border-gray-300 rounded-lg" placeholder="Paste your API key here">
-                            <button id="save-api-key-btn" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-blue-700">Save Key</button>
-                        </div>
-                        <p id="api-key-status" class="text-xs text-gray-500 mt-1"></p>
-                    </div>
                     <div>
-                        <h3 class="font-semibold text-gray-900">4. Advice for Your Psychological Safety</h3>
+                        <h3 class="font-semibold text-gray-900">3. Advice for Your Psychological Safety</h3>
                         <p>This is a space for you to explore your own thoughts and feelings. To ensure you feel safe and in control:</p>
                         <ul class="list-disc list-inside pl-4 space-y-1 mt-2">
                             <li><strong>Be Mindful:</strong> You are in complete control of what you write. Only share what feels right to you.</li>
@@ -637,7 +622,8 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const API_KEY_STORAGE = 'geminiApiKey';
+            const API_KEY = ""; // Handled by environment
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${API_KEY}`;
             const STORAGE_KEY = 'constructorDashboardData';
             
             let chatHistory = [];
@@ -676,38 +662,6 @@
                     if (!abcdMindsetModal.classList.contains('hidden')) closeModal(abcdMindsetModal);
                 }
             });
-            
-            // --- API Key Management ---
-            const apiKeyInput = document.getElementById('api-key-input');
-            const saveApiKeyBtn = document.getElementById('save-api-key-btn');
-            const apiKeyStatus = document.getElementById('api-key-status');
-
-            function getApiKey() {
-                return localStorage.getItem(API_KEY_STORAGE) || "";
-            }
-
-            function updateApiKeyStatus() {
-                const key = getApiKey();
-                if (key) {
-                    apiKeyStatus.textContent = `Key saved, ending in ...${key.slice(-4)}`;
-                    apiKeyStatus.classList.remove('text-red-500');
-                    apiKeyStatus.classList.add('text-green-600');
-                    apiKeyInput.value = "";
-                } else {
-                    apiKeyStatus.textContent = 'No API Key saved. AI features will not work.';
-                    apiKeyStatus.classList.remove('text-green-600');
-                    apiKeyStatus.classList.add('text-red-500');
-                }
-            }
-
-            saveApiKeyBtn.addEventListener('click', () => {
-                const key = apiKeyInput.value.trim();
-                if (key) {
-                    localStorage.setItem(API_KEY_STORAGE, key);
-                    updateApiKeyStatus();
-                }
-            });
-
 
             // --- ABCD Mindset Daily Prompts ---
             function populateAbcdPrompts() {
@@ -849,13 +803,6 @@
             }
 
             async function callGeminiAPI(promptOrHistory, resultElement, isChat = false, isTextarea = false) {
-                const apiKey = getApiKey();
-                if (!apiKey) {
-                    alert("Please set your Gemini API Key in the 'Start Here' modal to use AI features.");
-                    return;
-                }
-                const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
-
                 const loader = isChat ? document.getElementById(`${activeChat}-chat-loader`) : null;
                 if (loader) loader.classList.remove('hidden');
                 else if (resultElement) resultElement.innerHTML = '<div class="loader"></div>';
@@ -868,11 +815,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-                    if (!response.ok) {
-                        const errorBody = await response.text();
-                        console.error("API Error Body:", errorBody);
-                        throw new Error(`API Error: ${response.status} ${response.statusText}`);
-                    }
+                    if (!response.ok) throw new Error(`API Error: ${response.status} ${response.statusText}`);
                     const data = await response.json();
                     if (data.candidates && data.candidates[0].content) {
                         const text = data.candidates[0].content.parts[0].text;
@@ -886,13 +829,10 @@
                         else {
                             resultElement.innerHTML = formatAIResponse(text);
                         }
-                    } else { 
-                        console.error("Unexpected API response structure:", data);
-                        throw new Error("No content received from API."); 
-                    }
+                    } else { throw new Error("No content received from API."); }
                 } catch (error) {
                     console.error("Gemini API call failed:", error);
-                    const errorHtml = `<div class="text-red-600 p-4 bg-red-100 rounded-lg">Error: Could not get a response. Please check your internet connection and API key. More details in the console.</div>`;
+                    const errorHtml = `<div class="text-red-600 p-4 bg-red-100 rounded-lg">Error: Could not get a response.</div>`;
                     if (isChat) document.getElementById(`${activeChat}-chat-history`).innerHTML += errorHtml;
                     else if (resultElement && !isTextarea) resultElement.innerHTML = errorHtml;
                     else if (resultElement && isTextarea) resultElement.placeholder = "Error generating case study.";
@@ -1076,7 +1016,7 @@
             const setupCartographyLab = (prefix) => {
                 const generateCaseBtn = document.getElementById(`${prefix}-generate-case-btn`);
                 generateCaseBtn.addEventListener('click', () => {
-                    const prompt = `Generate a complex case study for a college-level ${prefix.charAt(0).toUpperCase() + prefix.slice(1)} System Cartography Lab...`;
+                    const prompt = `Generate a complex, self-contained case study for a college-level ${prefix.charAt(0).toUpperCase() + prefix.slice(1)} System Cartography Lab. The case study must include all necessary data, context, and stakeholder perspectives within the text itself, so that a student can complete the analysis without requiring any external research or data.`;
                     callGeminiAPI(prompt, document.getElementById(`${prefix}-case-study`), false, true);
                 });
 
@@ -1177,7 +1117,7 @@
                     education: { 'case-study': "In response to the student mental health crisis (which led to Alex's academic dishonesty), the university is considering a mandatory 'pass/fail' grading system for all first-year introductory courses. Proponents argue this will lower stress, encourage exploration, and reduce the competitive pressures that lead to cheating. Opponents, including some faculty and pre-med students, argue that it will devalue achievement, make it harder for high-achieving students to stand out for graduate school applications, and remove important feedback mechanisms for academic improvement.", map: "Stakeholders: First-year students, upper-level students, faculty, administrators, graduate school admissions committees, and employers. The key feedback loop is the tension between student well-being and traditional metrics of academic excellence. A system designed to maximize well-being might reduce the legible signals of excellence that other systems (like grad schools) rely on.", tensions: "The core tension is between the value of student well-being and the value of meritocratic achievement. There's also a conflict between creating an equitable, less stressful environment for all (a Community-scale goal) and preserving the ability of individuals to differentiate themselves (an Individual-scale goal).", intervention: "I propose a 'structured choice' model. All first-year students are enrolled in courses as pass/fail by default. However, after the mid-term period, any student has the one-time option to convert their final grade to a traditional letter grade. This preserves the low-stress exploratory period for all, while still allowing students who need or want the differentiation to opt-in, making their agency and goals visible." },
                     'education-synergy': { scale: "My intervention is at the Institutional scale (university grading policy) and the Individual scale (student choice). The appropriate lenses are Rights Protection (the right to choose one's evaluation method) and Procedural Justice (creating a fair process for all).", conflicts: "This solution might create a new Community-scale conflict, where a social norm develops that 'serious' students always opt-in to letter grades, recreating the original stress and competition. It could also conflict with the Institutional scale if it creates significant administrative complexity.", capability: "This intervention gives students the capability to self-assess their goals and learning needs mid-semester. It gives the institution the capability to support student well-being without completely abandoning traditional evaluation metrics. It creates a new capability for dialogue between students and advisors about the purpose of grades.", fef: "From a purely market-driven perspective, this 'structured choice' model is a powerful marketing tool. The university can brand itself as an innovative leader in student-centered education, attracting students who want both well-being and high achievement. This enhances the university's reputation and enrollment numbers, regardless of the direct pedagogical benefits." },
                     politics: { 'case-study': "The university student government, in response to the events of the academic integrity and wellness app cases, is debating a new 'Student Bill of Rights.' One proposed right is 'the right to a voice in university governance,' which would require student representatives on key administrative committees, including the one that sets tuition and the one that oversees disciplinary policy. The university administration is pushing back, arguing that while they value student input, students are temporary members of the community and lack the long-term perspective and expertise needed for these high-stakes decisions. They are proposing an 'advisory board' with no voting power instead.", map: "Stakeholders: Current students, future students, alumni, the student government, the university administration, the Board of Trustees, and faculty. The key feedback loop is the tension between student demands for democratic participation and the administration's desire for centralized, expert control. A lack of student power can lead to policies that generate widespread student distress, which in turn fuels more demands for participation.", tensions: "The core tension is between democratic legitimacy (power derived from the consent of the governed, i.e., the students) and technocratic authority (power derived from expertise and institutional position). It's a conflict between the values of participation and efficiency, and between the rights of community members and the authority of institutional leaders.", intervention: "I propose a 'co-governance' model as a constructive intervention. For key committees like the disciplinary and wellness committees, there should be designated student seats with full voting power. To address the administration's concern about expertise, these student representatives would be required to complete a mandatory training program on university finance and policy. This model shares power while also building student capability, creating a more resilient and legitimate system." },
-                    'politics-synergy': { scale: "My intervention is at the Institutional scale, redesigning the university's governance structure. The appropriate lenses are Rights Protection (the right to choose one's evaluation method) and Procedural Justice (creating a fair process for all).", conflicts: "This model could create a conflict with the National scale if accrediting bodies have strict rules about the composition of governing committees. It could also create a Community-scale conflict if different student factions compete intensely for these new positions of power, leading to political polarization within the student body.", capability: "This intervention gives students the capability to participate meaningfully in the decisions that shape their lives. It gives the administration the capability to make more informed and legitimate decisions that have greater student buy-in. It creates the capability for the entire university to become a laboratory for democratic practice.", fef: "From a brand and marketing perspective, a 'co-governance' model is a powerful differentiator. The university can market itself as a leader in student empowerment and democratic education, attracting top students who want to be active participants in their community. This enhances the university's prestige and reputation, making it a strategic move regardless of one's commitment to democratic principles." },
+                    'politics-synergy': { scale: "My intervention is at the Institutional scale, redesigning the university's governance structure. The appropriate lenses are Procedural Justice and Rights Protection.", conflicts: "This model could create a conflict with the National scale if accrediting bodies have strict rules about the composition of governing committees. It could also create a Community-scale conflict if different student factions compete intensely for these new positions of power, leading to political polarization within the student body.", capability: "This intervention gives students the capability to participate meaningfully in the decisions that shape their lives. It gives the administration the capability to make more informed and legitimate decisions that have greater student buy-in. It creates the capability for the entire university to become a laboratory for democratic practice.", fef: "From a brand and marketing perspective, a 'co-governance' model is a powerful differentiator. The university can market itself as a leader in student empowerment and democratic education, attracting top students who want to be active participants in their community. This enhances the university's prestige and reputation, making it a strategic move regardless of one's commitment to democratic principles." },
                     legacy: { innovation: "My moral innovation is the 'structured choice' model for first-year grading, developed in the Education Lab. The core idea is to make pass/fail the default to lower stress, while allowing students to opt-in to a letter grade after mid-terms. This balances the systemic need for well-being with the individual need for differentiation.", insights: "This innovation directly reflects my Identity Kernel's values of compassion and integrity. My BROA analysis showed that the 'problem' of academic dishonesty is also a 'cry for help' from a stressful system. My ABCD analysis highlighted the need to see the broader context of student pressure. This intervention is a direct response to those insights, aiming to build a more supportive system rather than just punishing individuals.", statement: "My legacy as a constructor is to design systems that create the capability for others to flourish without sacrificing their ethical coherence or well-being. I want to build regenerative structures that are not only fair and efficient, but also compassionate and sensitive to the embodied experience of the agents within them." }
                 };
                 
@@ -1232,9 +1172,8 @@
 
             document.getElementById('load-demo-btn').addEventListener('click', loadDemo);
 
-            // Initial load of saved work and API Key status
+            // Initial load of saved work
             loadWork();
-            updateApiKeyStatus();
         });
     </script>
 </body>
